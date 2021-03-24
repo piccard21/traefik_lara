@@ -1,0 +1,101 @@
+version: '3.7'
+
+networks:
+  web:
+    external: true
+  internal:
+    external: false
+
+# Services
+services:
+
+  # Nginx Service
+  nginx:
+    labels:
+      - traefik.http.routers.nginx.rule=Host(`lara.ldur-test.ur.de`)
+        #- traefik.http.routers.nginx.entrypoint=web
+      - traefik.docker.network=web
+      - traefik.http.routers.nginx.tls=true
+      - traefik.port=80
+      - traefik.enable=true
+      - traefik.http.services.nginx.loadbalancer.server.port=80
+    networks:
+      - internal
+      - web
+    build: ./.docker/nginx
+    #ports:
+            #- ${APP_PORT}:${APP_PORT}
+            #- ${APP_PORT_SSL}:${APP_PORT_SSL}
+            #- ${PMA_PORT}:${PMA_PORT}
+            #- ${PMA_PORT_SSL}:${PMA_PORT_SSL}
+    volumes:
+      - ./:/var/www/php
+      - ./.docker/nginx/conf.d:/etc/nginx/templates
+      - ${CERT_DIR}:/etc/ssl/certs/local
+      - phpmyadmindata:/var/www/phpmyadmin:ro
+    environment:
+      - NGINX_HOST=${APP_DOMAIN}
+      - NGINX_PORT=${APP_PORT}
+      - NGINX_PORT_SSL=${APP_PORT_SSL}
+      - PMA_HOST=${PMA_DOMAIN}
+      - PMA_PORT=${PMA_PORT}
+      - PMA_PORT_SSL=${PMA_PORT_SSL}
+      - CERT_NAME=${CERT_NAME}
+      - CERT_KEY=${CERT_KEY}
+    depends_on:
+      - php
+      - phpmyadmin
+
+  # PHP Service
+  php:
+    build:
+      args:
+        user: ldur
+        uid: 1000
+      context: ./.docker/php
+      dockerfile: Dockerfile
+    networks:
+      - internal
+    labels:
+      - traefik.enable=false
+    working_dir: /var/www/php
+    volumes:
+      - ./:/var/www/php
+      - ./.docker/php/conf.d/php.ini:/usr/local/etc/php/conf.d/php.ini
+      - ./.docker/php/conf.d/docker-xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+    depends_on:
+      - db
+
+  # MySQL Service
+  db:
+    image: mysql:5.7
+    networks:
+      - internal
+    labels:
+      - traefik.enable=false
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./.docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ${TARGET_DB_PATH}:/var/lib/mysql:rw
+      - .docker/mysql:/docker-entrypoint-initdb.d
+
+  # PhpMyAdmin Service
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:5-fpm-alpine
+    networks:
+      - internal
+    environment:
+      PMA_HOST: db
+    volumes:
+      - phpmyadmindata:/var/www/html
+    depends_on:
+      - db
+
+# Volumes
+volumes:
+
+  phpmyadmindata:

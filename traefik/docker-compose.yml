@@ -1,0 +1,68 @@
+version: "3.3"
+
+networks:
+  web:
+    external: true
+
+services:
+  traefik:
+    image: "traefik:v2.2"
+    command:
+      - --entrypoints.web.address=:80
+      - --entrypoints.web-secure.address=:443 #Declares the web-secure entrypoint in Traefik
+      - --api
+      - --providers.docker=true
+      - --providers.docker.network=web
+      - --providers.file.directory=/configuration/
+      - --providers.file.watch=true
+      - "--log.filePath=/tmp/traefik.log"
+      - "--log.level=error"
+      - "--accessLog=true"
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - web
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "/var/www/traefik/testme/configuration/:/configuration/"
+      - "/var/www/traefik/testme/ssl/:/ssl/"
+
+    labels:
+      # Dashboard
+      - "traefik.http.routers.traefik.rule=Host(`traefik.ldur-test.ur.de`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.tls=true"
+      - "traefik.http.routers.traefik.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=admin:$$apr1$$Dukj5mHa$$db9DxprQ3GkqPvdUlWwly."
+      # middleware redirect
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+
+      # global redirect to https
+      - "traefik.http.routers.redirs.rule=hostregexp(`{host:.+}`)"
+      - "traefik.http.routers.redirs.entrypoints=web"
+      - "traefik.http.routers.redirs.middlewares=redirect-to-https"
+
+  main-app:
+    image: containous/whoami:v1.3.0
+    networks:
+      - web
+    labels:
+      - "traefik.http.routers.main-app.rule=Host(`ldur-test.ur.de`)"
+      - "traefik.http.routers.main-app.tls=true"
+        #- traefik.docker.network=web
+        #- traefik.port=80
+        #- traefik.enable=true
+        #- traefik.http.services.main-app.loadbalancer.server.port=80
+
+
+  second-app:
+    image: containous/whoami:v1.3.0
+    networks:
+      - web
+    command:
+      - --port=8082 # Our service listens on 8082
+    labels:
+      - "traefik.http.routers.second-app.rule=Host(`second.ldur-test.ur.de`)"
+      - "traefik.http.routers.second-app.tls=true"
+      - "traefik.http.services.second-app.loadbalancer.server.port=8082"

@@ -1,0 +1,7 @@
+[[tls.certificates]] #first certificate
+   certFile = "/ssl/ldur-test.bundle.crt"
+   keyFile = "/ssl/ldur-test.key"
+[[tls.certificates]] #second certificate
+   certFile = "/ssl/_.ldur-test.bundle.crt"
+   keyFile = "/ssl/_.ldur-test.key"
+   stores = ["default"]
