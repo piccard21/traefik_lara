@@ -11,28 +11,28 @@ services:
 
   # Nginx Service
   nginx:
-    labels:
-      - traefik.http.routers.nginx.rule=Host(`lara.ldur-test.ur.de`)
-        #- traefik.http.routers.nginx.entrypoint=web
-      - traefik.docker.network=web
-      - traefik.http.routers.nginx.tls=true
-      - traefik.port=80
-      - traefik.enable=true
-      - traefik.http.services.nginx.loadbalancer.server.port=80
+    container_name: nginx2
+    build: ./.docker/nginx
+    # ports:
+    #  - ${APP_PORT}:${APP_PORT}
+    #  - ${APP_PORT_SSL}:${APP_PORT_SSL}
+    #  - ${PMA_PORT}:${PMA_PORT}
+    #  - ${PMA_PORT_SSL}:${PMA_PORT_SSL}
     networks:
       - internal
       - web
-    build: ./.docker/nginx
-    #ports:
-            #- ${APP_PORT}:${APP_PORT}
-            #- ${APP_PORT_SSL}:${APP_PORT_SSL}
-            #- ${PMA_PORT}:${PMA_PORT}
-            #- ${PMA_PORT_SSL}:${PMA_PORT_SSL}
+    labels:
+      - traefik.http.routers.nginx2.rule=Host(`monitor.ldur-test.ur.de`)
+      - traefik.docker.network=web
+      - traefik.http.routers.nginx2.tls=true
+      - traefik.port=80
+      - traefik.enable=true
+      - traefik.http.services.nginx2.loadbalancer.server.port=80
     volumes:
       - ./:/var/www/php
       - ./.docker/nginx/conf.d:/etc/nginx/templates
       - ${CERT_DIR}:/etc/ssl/certs/local
-      - phpmyadmindata:/var/www/phpmyadmin:ro
+        #- phpmyadmindata:/var/www/phpmyadmin:ro
     environment:
       - NGINX_HOST=${APP_DOMAIN}
       - NGINX_PORT=${APP_PORT}
@@ -44,7 +44,7 @@ services:
       - CERT_KEY=${CERT_KEY}
     depends_on:
       - php
-      - phpmyadmin
+        #    - phpmyadmin
 
   # PHP Service
   php:
@@ -54,11 +54,11 @@ services:
         uid: 1000
       context: ./.docker/php
       dockerfile: Dockerfile
+    working_dir: /var/www/php
     networks:
       - internal
     labels:
       - traefik.enable=false
-    working_dir: /var/www/php
     volumes:
       - ./:/var/www/php
       - ./.docker/php/conf.d/php.ini:/usr/local/etc/php/conf.d/php.ini
@@ -84,18 +84,28 @@ services:
       - .docker/mysql:/docker-entrypoint-initdb.d
 
   # PhpMyAdmin Service
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin:5-fpm-alpine
+  #  phpmyadmin:
+  #  image: phpmyadmin/phpmyadmin:5-fpm-alpine
+  #  environment:
+  #    PMA_HOST: db
+  #  volumes:
+  #    - phpmyadmindata:/var/www/html
+  #  depends_on:
+  #    - db
+
+  # node
+  node:
+    image: node:latest
     networks:
       - internal
-    environment:
-      PMA_HOST: db
+    labels:
+      - traefik.enable=false
+    container_name: npm
     volumes:
-      - phpmyadmindata:/var/www/html
-    depends_on:
-      - db
+      - ./:/var/www/html:rw
+    working_dir: /var/www/html
+    user: node
 
 # Volumes
-volumes:
-
-  phpmyadmindata:
+#volumes:
+# phpmyadmindata:
